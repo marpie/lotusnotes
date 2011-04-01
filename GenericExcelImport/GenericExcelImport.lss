@@ -1,0 +1,71 @@
+Option Public
+Option Declare
+%INCLUDE "ImportFromExcel.lss"
+
+%REM
+
+NAME
+	GenericExcelImport
+
+VERSION
+	1.0
+
+DATE
+	2011-03-24 - marpie:
+		- Lib created.
+	
+COPYRIGHT
+	(c) 2011, a12d404.net - BSD License
+
+AUTHOR
+	marpie
+
+%END REM
+Sub Initialize
+%REM
+	Generic Excel to Lotus Notes.
+	
+	Imports all files supported by Microsoft Excel.
+%END REM
+	Dim session As New NotesSession
+	Dim wks As New NotesUIWorkspace
+	Dim db As NotesDatabase
+	Dim allViews() As String
+	Dim viewStr As String
+	Dim view As NotesView
+	Dim n As Long
+	Dim fileNameStr As String
+	Dim ret As Variant
+	
+	Set db = session.CurrentDatabase
+	
+	Redim allViews(Ubound(db.Views))
+	
+	n = 0
+	Forall entry In db.Views
+		allViews(n) = entry.Name
+		n = n + 1
+	End Forall
+	
+	' Requesting View
+	Set view = wks.CurrentView.View
+	viewStr = wks.Prompt(4, "View Selection", "Please select the destination View", view.Name, allViews)
+	If viewStr = "" Then
+		Exit Sub
+	End If
+	Set view = db.GetView(viewStr)
+	
+	' Requesting Filename
+	ret = wks.OpenFileDialog( False, "Please select the Microsoft Excel File", "Microsoft Excel (*.xls, *.xlsx, *.csv)|*.xls*;*.csv|Microsft CSV (*.csv)|*.csv")
+	If Ubound(ret) = 0 Then
+		
+	End If
+	fileNameStr = ret(0)
+	If fileNameStr = "" Then
+		Exit Sub
+	End If
+	
+	If ImportFromExcel(fileNameStr, view, "") Then
+		Msgbox "Import completed."
+	End If
+End Sub

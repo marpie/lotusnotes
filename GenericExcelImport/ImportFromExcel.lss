@@ -1,0 +1,160 @@
+' Option Public
+' Option Declare
+%REM
+
+NAME
+	ImportFromExcel (Lotus Notes Import from Microsoft Excel over OLE)
+
+VERSION
+	1.0
+
+DATE
+	2011-03-24 - marpie:
+		- Lib created.
+	
+COPYRIGHT
+	(c) 2011, a12d404.net - BSD License
+
+AUTHOR
+	marpie
+
+Function ImportFromExcel(fileName As String, targetView As NotesView, targetForm As String) As Boolean
+
+%END REM
+Const AppConst = "Excel.Application"
+Const AppConst2 = "Excel.Application.8"
+
+Const xlLastCell = 11
+Function ImportFromExcel(fileName As String, targetView As NotesView, targetForm As String) As Boolean
+%REM
+ImportFromExcel
+***************
+	
+	fileName -> Filename of the Microsft Excel file (any *.XLS(X) file)
+	targetView -> The view that specifies the import format
+	targetForm -> The name of the target form used by the script
+	
+%END REM
+	On Error Goto ExceptionHandling
+	Dim session As New NotesSession
+	Dim db As NotesDatabase
+	Dim doc As NotesDocument
+	
+	Dim excelAppObject As Variant
+	Dim maxRows As Long
+	Dim maxColumns As Long
+	Dim n As Long
+	Dim tmpStr As String
+	Dim tmpInt As Long
+	Dim useableFieldNumbers() As Integer
+	Dim useableFieldNames() As String
+	
+	ImportFromExcel = False
+	
+	If (fileName = "") Then
+		Exit Function
+	End If
+	
+	If (targetView Is Nothing) Then
+		Exit Function
+	End If
+	
+	If (targetForm = "") Then
+		If Messagebox("No target Form given. Should I use the Form of the first document in the View?", 4, "Use the first document's form field?") = 6 Then
+			Set doc = targetView.GetFirstDocument
+			If doc Is Nothing Then
+				Goto UseCustomForm
+			End If
+			targetForm = doc.Form(0)
+		Else
+UseCustomForm:
+			targetForm = Inputbox("Whats the name of the Form to use?", "Specify the name of the form to use")
+			If targetForm = "" Then
+				Exit Function
+			End If
+		End If
+	End If
+	
+	maxColumns = targetView.ColumnCount
+	Redim useableFieldNumbers(maxColumns-1)
+	Redim useableFieldNames(maxColumns-1)
+	n = 0
+	tmpInt = 0
+	Forall columnEntry In targetView.Columns
+		If Not columnEntry.IsHidden Then
+			If columnEntry.IsField Then
+				' entry.ItemName == FieldName
+				useableFieldNumbers(n) = tmpInt
+				useableFieldNames(n) = columnEntry.ItemName
+				n = n + 1
+			End If
+		End If
+		tmpInt = tmpInt + 1
+	End Forall
+	Redim Preserve useableFieldNumbers(n-1)
+	Redim Preserve useableFieldNames(n-1)
+	
+	' Connect to Excel
+	Set excelAppObject = CreateObject( AppConst )
+	If excelAppObject Is Nothing Then
+		Set excelAppObject = CreateObject( AppConst2 )
+		If excelAppObject Is Nothing Then
+			Exit Function
+		End If
+	End If
+	
+	' Open file
+	excelAppObject.Visible = False
+	Call excelAppObject.Workbooks.Open(fileName)
+	
+	' Retrieve the last Cell
+	Call excelAppObject.ActiveCell.SpecialCells(xlLastCell).Select()
+	maxRows = excelAppObject.ActiveCell.Row
+	If Messagebox(Str(maxRows) + " entries are available for import. Do you want to import all entries?", 4, "Start complete import?") <> 6 Then
+		
+		tmpStr = Inputbox("How may entries do you want to import?", "Customized import.")
+		If tmpStr = "" Then
+			Exit Function
+		End If
+		
+		maxRows = Int(tmpStr)
+		If maxRows < 1 Then
+			Exit Function
+		End If
+	End If
+	Call excelAppObject.Range("A1").Select
+	
+	' Prepare import ... databases etc.
+	Set db = session.CurrentDatabase
+	
+	' Import...
+	For n = 0 To maxRows-1
+		Set doc = db.CreateDocument
+		doc.Form = targetForm
+		
+		tmpInt = 0
+		For tmpInt = 0 To Ubound(useableFieldNumbers)
+			Call doc.ReplaceItemValue( useableFieldNames(tmpInt),excelAppObject.Cells(n+1, useableFieldNumbers(tmpInt)+1).Value)
+		Next
+		
+		If (n Mod 20) = 0 Then
+			Print "Pos: " + Str(n) + "/" + Str(maxRows)
+		End If
+		
+		Call doc.Save(True, False)
+	Next
+	Print ""
+	
+	ImportFromExcel = True
+	
+ExitScript:
+	Call excelAppObject.Quit()
+	Exit Function
+	
+ExceptionHandling:
+	Messagebox "Error" & Str(Err) & ": " & Error$ & " (Line: " & Str(Erl()) & ")"
+	Resume ExitScript
+End Function
+Sub Terminate
+	
+End Sub
