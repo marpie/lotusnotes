@@ -8,9 +8,11 @@ NAME
 	GenericExcelImport
 
 VERSION
-	1.0
+	1.1
 
 DATE
+  2011-10-25 - marpie:
+    - Form name is retrieved from the parent View.
 	2011-03-24 - marpie:
 		- Lib created.
 	
