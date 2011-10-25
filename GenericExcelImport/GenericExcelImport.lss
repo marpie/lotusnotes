@@ -36,6 +36,7 @@ Sub Initialize
 	Dim n As Long
 	Dim fileNameStr As String
 	Dim ret As Variant
+	Dim targetForm As String
 	
 	Set db = session.CurrentDatabase
 	
@@ -55,17 +56,62 @@ Sub Initialize
 	End If
 	Set view = db.GetView(viewStr)
 	
+	' Check if the Form can be extracted from the selection formula
+	targetForm = ExtractTargetForm(view.Selectionformula)
+	If targetForm <> "" Then
+		If MessageBox("The following Form was extracted: """ + targetForm + """ should that form be used?", 4, "Use extracted Form?") <> 6 Then
+			targetForm = ""
+		End If
+	End If
+	
 	' Requesting Filename
 	ret = wks.OpenFileDialog( False, "Please select the Microsoft Excel File", "Microsoft Excel (*.xls, *.xlsx, *.csv)|*.xls*;*.csv|Microsft CSV (*.csv)|*.csv")
-	If Ubound(ret) = 0 Then
-		
+	If IsEmpty(ret) Then
+		Exit Sub
 	End If
 	fileNameStr = ret(0)
 	If fileNameStr = "" Then
 		Exit Sub
 	End If
 	
-	If ImportFromExcel(fileNameStr, view, "") Then
+	If ImportFromExcel(fileNameStr, view, targetForm) Then
 		Msgbox "Import completed."
 	End If
 End Sub
+%REM
+	Function ExtractTargetForm
+	Description: Comments for Function
+%END REM
+Function ExtractTargetForm(selectionFormula As String) As String
+%REM
+	Select x = 1 and Form = "Importdaten" and xyz = "ja"
+%END REM
+	Const searchStr = "Form="""
+	Dim i As Integer
+	Dim formula As String
+	Dim c As String
+	Dim sBegin As Integer
+	Dim sEnd As Integer
+	
+	Stop
+	
+	If Len(selectionFormula) = 0 Then
+		Exit Function
+	End If
+	
+	' prepare formula
+	For i = 1 To Len(selectionFormula)
+		c = Mid(selectionFormula, i, 1)
+		If c <> " " Then
+			formula = formula + c
+		End If
+	Next
+	
+	sBegin = InStr(1, formula, searchStr, 5) + Len(searchStr) ' Form= Length + 2
+	If sBegin > 0 Then
+		sEnd = InStr(sBegin, formula, Chr(34), 5)
+		If sEnd > 0 Then
+			ExtractTargetForm = Mid(formula, sBegin, sEnd-sBegin)
+		End If
+	End If
+End Function
